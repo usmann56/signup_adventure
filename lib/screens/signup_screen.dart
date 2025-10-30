@@ -14,34 +14,27 @@ class _SignupScreenState extends State<SignupScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _dobController = TextEditingController();
+  final TextEditingController _avatarController = TextEditingController();
+
+  final List<String> _avatars = ['😊', '🚀', '🐱', '🌙'];
+
   bool _isPasswordVisible = false;
   bool _isLoading = false;
-  final TextEditingController _avatarController = TextEditingController();
-  final List<String> _avatars = ['😊', '🚀', '🐱', '🌙'];
+
   double _passwordStrength = 0;
   Color _strengthColor = Colors.red;
+
+  bool _hadValidationError = false;
+  List<String> _badges = [];
+
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _dobController.dispose();
+    _avatarController.dispose();
     super.dispose();
-  }
-
-  // Date Picker Function
-  Future<void> _selectDate() async {
-    DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(1900),
-      lastDate: DateTime.now(),
-    );
-    if (picked != null) {
-      setState(() {
-        _dobController.text = "${picked.day}/${picked.month}/${picked.year}";
-      });
-    }
   }
 
   void _checkPasswordStrength(String password) {
@@ -79,8 +72,66 @@ class _SignupScreenState extends State<SignupScreen> {
     return "Excellent ✅";
   }
 
+  void _assignBadges() {
+    _badges.clear();
+
+    if (_passwordStrength >= 0.75) {
+      _badges.add("🏆 Strong Password Master");
+    }
+
+    if (_dobController.text.isNotEmpty) {
+      try {
+        // Split dd/MM/yyyy
+        final parts = _dobController.text.split('/');
+        if (parts.length == 3) {
+          final day = int.parse(parts[0]);
+          final month = int.parse(parts[1]);
+          final year = int.parse(parts[2]);
+
+          final dob = DateTime(year, month, day);
+
+          // Born in the 1900s
+          if (dob.year < 2000) {
+            _badges.add("🕰 Time Traveler (Born in the 1900s)");
+          }
+
+          // Gen Alpha Explorer DOB > 2013
+          if (dob.year > 2013) {
+            _badges.add("🚀 Gen Alpha Explorer");
+          }
+        }
+      } catch (_) {
+        // ignore parse errors safely
+      }
+    }
+
+    if (_hadValidationError == false) {
+      _badges.add("✨ Flawless Hero (No Form Errors)");
+    }
+  }
+
+  Future<void> _selectDate() async {
+    DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        _dobController.text = "${picked.day}/${picked.month}/${picked.year}";
+      });
+    }
+  }
+
   void _submitForm() {
+    // Track validation failures first
+    if (!_formKey.currentState!.validate()) {
+      _hadValidationError = true;
+    }
+
     if (_avatarController.text.isEmpty) {
+      _hadValidationError = true;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Please select an avatar"),
@@ -89,22 +140,24 @@ class _SignupScreenState extends State<SignupScreen> {
       );
       return;
     }
+
     if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
-      // Simulate API call
+      _assignBadges();
+
+      setState(() => _isLoading = true);
+
       Future.delayed(const Duration(seconds: 2), () {
-        if (!mounted) return; // Check if the widget is still in the tree
-        setState(() {
-          _isLoading = false;
-        });
+        if (!mounted) return;
+
+        setState(() => _isLoading = false);
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder: (context) => SuccessScreen(
               userName: _nameController.text,
               userAvatar: _avatarController.text,
+              badges: _badges, // ✅ Pass badges
             ),
           ),
         );
@@ -127,65 +180,29 @@ class _SignupScreenState extends State<SignupScreen> {
             key: _formKey,
             child: Column(
               children: [
-                // Animated Form Header
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 500),
-                  curve: Curves.easeInOut,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.deepPurple[100],
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.tips_and_updates,
-                        color: Colors.deepPurple[800],
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Complete your adventure profile!',
-                          style: TextStyle(
-                            color: Colors.deepPurple[800],
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
                 const SizedBox(height: 30),
-                // Name Field
+
                 _buildTextField(
                   controller: _nameController,
                   label: 'Adventure Name',
                   icon: Icons.person,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'What should we call you on this adventure?';
-                    }
-                    return null;
-                  },
+                  validator: (value) =>
+                      value!.isEmpty ? 'Enter your name adventurer!' : null,
                 ),
                 const SizedBox(height: 20),
-                // Email Field
+
                 _buildTextField(
                   controller: _emailController,
                   label: 'Email Address',
                   icon: Icons.email,
                   validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'We need your email for adventure updates!';
-                    }
-                    if (!value.contains('@') || !value.contains('.')) {
-                      return 'Oops! That doesn\'t look like a valid email';
-                    }
+                    if (value!.isEmpty) return 'Email required!';
+                    if (!value.contains('@')) return 'Enter valid email';
                     return null;
                   },
                 ),
                 const SizedBox(height: 20),
-                // DOB w/Calendar
+
                 TextFormField(
                   controller: _dobController,
                   readOnly: true,
@@ -201,20 +218,13 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                     filled: true,
                     fillColor: Colors.grey[50],
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.date_range),
-                      onPressed: _selectDate,
-                    ),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'When did your adventure begin?';
-                    }
-                    return null;
-                  },
+                  validator: (value) =>
+                      value!.isEmpty ? 'Choose your birth date' : null,
                 ),
                 const SizedBox(height: 20),
-                // Pswd Field w/ Toggle
+
+                // ✅ Password + Strength Meter
                 TextFormField(
                   controller: _passwordController,
                   obscureText: !_isPasswordVisible,
@@ -238,23 +248,22 @@ class _SignupScreenState extends State<SignupScreen> {
                         color: Colors.deepPurple,
                       ),
                       onPressed: () {
-                        setState(() {
-                          _isPasswordVisible = !_isPasswordVisible;
-                        });
+                        setState(
+                          () => _isPasswordVisible = !_isPasswordVisible,
+                        );
                       },
                     ),
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Every adventurer needs a secret password!';
-                    }
-                    if (value.length < 6) {
-                      return 'Make it stronger! At least 6 characters';
-                    }
+                    if (value!.isEmpty) return 'Password required!';
+                    if (value.length < 6) return 'Min 6 characters';
                     return null;
                   },
                 ),
-                const SizedBox(height: 8),
+
+                const SizedBox(height: 10),
+
+                // ✅ Strength Bar UI
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -284,18 +293,17 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                   ],
                 ),
+
                 const SizedBox(height: 20),
-                // Avatar Selection
+
+                // ✅ Avatar Pick
                 Wrap(
                   spacing: 12,
                   children: _avatars.map((emoji) {
                     final isSelected = _avatarController.text == emoji;
                     return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _avatarController.text = emoji;
-                        });
-                      },
+                      onTap: () =>
+                          setState(() => _avatarController.text = emoji),
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
@@ -318,20 +326,16 @@ class _SignupScreenState extends State<SignupScreen> {
                     );
                   }).toList(),
                 ),
+
                 const SizedBox(height: 30),
-                // Submit Button w/ Loading Animation
+
+                // ✅ Button / Loading
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   width: _isLoading ? 60 : double.infinity,
                   height: 60,
                   child: _isLoading
-                      ? const Center(
-                          child: CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.deepPurple,
-                            ),
-                          ),
-                        )
+                      ? const Center(child: CircularProgressIndicator())
                       : ElevatedButton(
                           onPressed: _submitForm,
                           style: ElevatedButton.styleFrom(
@@ -339,22 +343,10 @@ class _SignupScreenState extends State<SignupScreen> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(15),
                             ),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            elevation: 5,
                           ),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                'Start My Adventure',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              SizedBox(width: 10),
-                              Icon(Icons.rocket_launch, color: Colors.white),
-                            ],
+                          child: const Text(
+                            'Start My Adventure 🚀',
+                            style: TextStyle(fontSize: 18, color: Colors.white),
                           ),
                         ),
                 ),
