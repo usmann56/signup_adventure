@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'success_screen.dart'; // Import for navigation
+import 'package:confetti/confetti.dart';
 
 // Signup Screen w/ Interactive Form
 class SignupScreen extends StatefulWidget {
@@ -26,6 +27,14 @@ class _SignupScreenState extends State<SignupScreen> {
 
   bool _hadValidationError = false;
   List<String> _badges = [];
+
+  double _progress = 0.0; // 0.0 → 1.0
+  String _progressMessage = "";
+
+  final ConfettiController _progressConfettiController = ConfettiController(
+    duration: const Duration(seconds: 2),
+  );
+  Set<int> _milestonesReached = {}; // Track which milestones fired
 
   @override
   void dispose() {
@@ -63,6 +72,7 @@ class _SignupScreenState extends State<SignupScreen> {
         _strengthColor = Colors.green;
       }
     });
+    _updateProgress();
   }
 
   String _getStrengthLabel() {
@@ -70,6 +80,47 @@ class _SignupScreenState extends State<SignupScreen> {
     if (_passwordStrength <= 0.50) return "Weak 🟠";
     if (_passwordStrength <= 0.75) return "Strong 🟡";
     return "Excellent ✅";
+  }
+
+  void _updateProgress() {
+    double progress = 0;
+
+    if (_nameController.text.isNotEmpty) progress += 0.2;
+    if (_emailController.text.isNotEmpty) progress += 0.2;
+    if (_passwordController.text.isNotEmpty) progress += 0.2;
+    if (_dobController.text.isNotEmpty) progress += 0.2;
+    if (_avatarController.text.isNotEmpty) progress += 0.2;
+
+    setState(() {
+      _progress = progress;
+
+      // Milestones
+      int milestonePercent = (_progress * 100).round();
+
+      if (!_milestonesReached.contains(milestonePercent) &&
+          [20, 40, 60, 80, 100].contains(milestonePercent)) {
+        _milestonesReached.add(milestonePercent);
+        _progressConfettiController.play();
+
+        switch (milestonePercent) {
+          case 20:
+            _progressMessage = "🌟 First Steps! Keep Going!";
+            break;
+          case 40:
+            _progressMessage = "🔥 Second Step Done!";
+            break;
+          case 60:
+            _progressMessage = "More Then Halfway There! You got this!";
+            break;
+          case 80:
+            _progressMessage = "⚡ Almost Complete! Adventure Awaits!";
+            break;
+          case 100:
+            _progressMessage = "🏆 Fully Ready! Let’s Begin the Journey!";
+            break;
+        }
+      }
+    });
   }
 
   void _assignBadges() {
@@ -122,6 +173,7 @@ class _SignupScreenState extends State<SignupScreen> {
         _dobController.text = "${picked.day}/${picked.month}/${picked.year}";
       });
     }
+    _updateProgress();
   }
 
   void _submitForm() {
@@ -188,6 +240,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   icon: Icons.person,
                   validator: (value) =>
                       value!.isEmpty ? 'Enter your name adventurer!' : null,
+                  onChanged: (_) => _updateProgress(),
                 ),
                 const SizedBox(height: 20),
 
@@ -200,6 +253,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     if (!value.contains('@')) return 'Enter valid email';
                     return null;
                   },
+                  onChanged: (_) => _updateProgress(),
                 ),
                 const SizedBox(height: 20),
 
@@ -302,8 +356,13 @@ class _SignupScreenState extends State<SignupScreen> {
                   children: _avatars.map((emoji) {
                     final isSelected = _avatarController.text == emoji;
                     return GestureDetector(
-                      onTap: () =>
-                          setState(() => _avatarController.text = emoji),
+                      onTap: () {
+                        setState(() {
+                          _avatarController.text = emoji;
+                        });
+                        _updateProgress();
+                      },
+
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
@@ -328,6 +387,60 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
 
                 const SizedBox(height: 30),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 400),
+                      height: 12,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        color: Colors.grey.shade300,
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: LinearProgressIndicator(
+                          value: _progress,
+                          backgroundColor: Colors.transparent,
+                          valueColor: AlwaysStoppedAnimation(Colors.deepPurple),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          "${(_progress * 100).round()}%",
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          _progressMessage,
+                          style: const TextStyle(
+                            color: Colors.deepPurple,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          textAlign: TextAlign.end,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                Align(
+                  alignment: Alignment.topCenter,
+                  child: ConfettiWidget(
+                    confettiController: _progressConfettiController,
+                    blastDirectionality: BlastDirectionality.explosive,
+                    shouldLoop: false,
+                    colors: const [
+                      Colors.deepPurple,
+                      Colors.purple,
+                      Colors.blue,
+                      Colors.green,
+                      Colors.orange,
+                    ],
+                  ),
+                ),
 
                 // ✅ Button / Loading
                 AnimatedContainer(
@@ -363,6 +476,7 @@ class _SignupScreenState extends State<SignupScreen> {
     required String label,
     required IconData icon,
     required String? Function(String?) validator,
+    required void Function(String)? onChanged,
   }) {
     return TextFormField(
       controller: controller,
@@ -374,6 +488,7 @@ class _SignupScreenState extends State<SignupScreen> {
         fillColor: Colors.grey[50],
       ),
       validator: validator,
+      onChanged: onChanged,
     );
   }
 }
