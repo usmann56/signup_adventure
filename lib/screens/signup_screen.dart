@@ -16,6 +16,8 @@ class _SignupScreenState extends State<SignupScreen> {
   final TextEditingController _dobController = TextEditingController();
   bool _isPasswordVisible = false;
   bool _isLoading = false;
+  final TextEditingController _avatarController = TextEditingController();
+  final List<String> _avatars = ['😊', '🚀', '🐱', '🌙'];
   @override
   void dispose() {
     _nameController.dispose();
@@ -41,6 +43,15 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 
   void _submitForm() {
+    if (_avatarController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please select an avatar"),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
@@ -54,7 +65,10 @@ class _SignupScreenState extends State<SignupScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => SuccessScreen(userName: _nameController.text),
+            builder: (context) => SuccessScreen(
+              userName: _nameController.text,
+              userAvatar: _avatarController.text,
+            ),
           ),
         );
       });
@@ -201,6 +215,40 @@ class _SignupScreenState extends State<SignupScreen> {
                     }
                     return null;
                   },
+                ),
+                const SizedBox(height: 20),
+                // Avatar Selection
+                Wrap(
+                  spacing: 12,
+                  children: _avatars.map((emoji) {
+                    final isSelected = _avatarController.text == emoji;
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _avatarController.text = emoji;
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isSelected
+                              ? Colors.purple.withOpacity(0.2)
+                              : Colors.grey.shade200,
+                          border: Border.all(
+                            color: isSelected
+                                ? Colors.purple
+                                : Colors.transparent,
+                            width: 2,
+                          ),
+                        ),
+                        child: Text(
+                          emoji,
+                          style: const TextStyle(fontSize: 28),
+                        ),
+                      ),
+                    );
+                  }).toList(),
                 ),
                 const SizedBox(height: 30),
                 // Submit Button w/ Loading Animation

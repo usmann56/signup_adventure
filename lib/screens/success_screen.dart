@@ -5,7 +5,8 @@ import 'package:confetti/confetti.dart';
 // Tha Big Confetti Celebration
 class SuccessScreen extends StatefulWidget {
   final String userName;
-  const SuccessScreen({super.key, required this.userName});
+  final String? userAvatar;
+  const SuccessScreen({super.key, required this.userName, this.userAvatar});
   @override
   State<SuccessScreen> createState() => _SuccessScreenState();
 }
@@ -84,7 +85,7 @@ class _SuccessScreenState extends State<SuccessScreen> {
                   AnimatedTextKit(
                     animatedTexts: [
                       TypewriterAnimatedText(
-                        'Welcome, ${widget.userName}! ✅',
+                        'Welcome, ${widget.userName}! ${widget.userAvatar ?? ''}',
                         textAlign: TextAlign.center,
                         textStyle: const TextStyle(
                           fontSize: 28,
