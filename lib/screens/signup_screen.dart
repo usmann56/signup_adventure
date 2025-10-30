@@ -18,6 +18,8 @@ class _SignupScreenState extends State<SignupScreen> {
   bool _isLoading = false;
   final TextEditingController _avatarController = TextEditingController();
   final List<String> _avatars = ['😊', '🚀', '🐱', '🌙'];
+  double _passwordStrength = 0;
+  Color _strengthColor = Colors.red;
   @override
   void dispose() {
     _nameController.dispose();
@@ -40,6 +42,41 @@ class _SignupScreenState extends State<SignupScreen> {
         _dobController.text = "${picked.day}/${picked.month}/${picked.year}";
       });
     }
+  }
+
+  void _checkPasswordStrength(String password) {
+    double strength = 0;
+
+    if (password.isEmpty) {
+      strength = 0;
+    } else {
+      if (password.length >= 6) strength += 0.25;
+      if (password.contains(RegExp(r'[A-Z]'))) strength += 0.25;
+      if (password.contains(RegExp(r'[0-9]'))) strength += 0.25;
+      if (password.contains(RegExp(r'[!@#\$%^&*(),.?":{}|<>]')))
+        strength += 0.25;
+    }
+
+    setState(() {
+      _passwordStrength = strength;
+
+      if (strength <= 0.25) {
+        _strengthColor = Colors.red;
+      } else if (strength <= 0.5) {
+        _strengthColor = Colors.orange;
+      } else if (strength <= 0.75) {
+        _strengthColor = Colors.yellow[700]!;
+      } else {
+        _strengthColor = Colors.green;
+      }
+    });
+  }
+
+  String _getStrengthLabel() {
+    if (_passwordStrength <= 0.25) return "Very Weak 🔴";
+    if (_passwordStrength <= 0.50) return "Weak 🟠";
+    if (_passwordStrength <= 0.75) return "Strong 🟡";
+    return "Excellent ✅";
   }
 
   void _submitForm() {
@@ -181,6 +218,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 TextFormField(
                   controller: _passwordController,
                   obscureText: !_isPasswordVisible,
+                  onChanged: _checkPasswordStrength,
                   decoration: InputDecoration(
                     labelText: 'Secret Password',
                     prefixIcon: const Icon(
@@ -215,6 +253,36 @@ class _SignupScreenState extends State<SignupScreen> {
                     }
                     return null;
                   },
+                ),
+                const SizedBox(height: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 400),
+                      height: 10,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.grey.shade300,
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: LinearProgressIndicator(
+                          value: _passwordStrength,
+                          backgroundColor: Colors.transparent,
+                          valueColor: AlwaysStoppedAnimation(_strengthColor),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _getStrengthLabel(),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: _strengthColor,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 20),
                 // Avatar Selection
