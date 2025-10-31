@@ -233,8 +233,7 @@ class _SignupScreenState extends State<SignupScreen> {
             child: Column(
               children: [
                 const SizedBox(height: 30),
-
-                _buildTextField(
+                ValidatedTextField(
                   controller: _nameController,
                   label: 'Adventure Name',
                   icon: Icons.person,
@@ -243,8 +242,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   onChanged: (_) => _updateProgress(),
                 ),
                 const SizedBox(height: 20),
-
-                _buildTextField(
+                ValidatedTextField(
                   controller: _emailController,
                   label: 'Email Address',
                   icon: Icons.email,
@@ -470,25 +468,135 @@ class _SignupScreenState extends State<SignupScreen> {
       ),
     );
   }
+}
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    required String? Function(String?) validator,
-    required void Function(String)? onChanged,
-  }) {
-    return TextFormField(
-      controller: controller,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, color: Colors.deepPurple),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        filled: true,
-        fillColor: Colors.grey[50],
-      ),
-      validator: validator,
-      onChanged: onChanged,
+class ValidatedTextField extends StatefulWidget {
+  final TextEditingController controller;
+  final String label;
+  final IconData icon;
+  final String? Function(String?) validator;
+  final void Function(String)? onChanged;
+  final bool obscureText;
+
+  const ValidatedTextField({
+    super.key,
+    required this.controller,
+    required this.label,
+    required this.icon,
+    required this.validator,
+    this.onChanged,
+    this.obscureText = false,
+  });
+
+  @override
+  State<ValidatedTextField> createState() => _ValidatedTextFieldState();
+}
+
+class _ValidatedTextFieldState extends State<ValidatedTextField>
+    with SingleTickerProviderStateMixin {
+  bool _isValid = false;
+  String? _errorMessage;
+
+  late AnimationController _animationController;
+  late Animation<double> _shakeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+
+    _shakeAnimation =
+        TweenSequence<double>([
+          TweenSequenceItem(tween: Tween(begin: 0, end: -10), weight: 1),
+          TweenSequenceItem(tween: Tween(begin: -10, end: 10), weight: 2),
+          TweenSequenceItem(tween: Tween(begin: 10, end: -10), weight: 2),
+          TweenSequenceItem(tween: Tween(begin: -10, end: 10), weight: 2),
+          TweenSequenceItem(tween: Tween(begin: 10, end: 0), weight: 1),
+        ]).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: Curves.elasticIn,
+          ),
+        );
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _validate(String value) {
+    final error = widget.validator(value);
+    final valid = error == null;
+
+    setState(() {
+      _isValid = valid;
+      _errorMessage = error;
+    });
+
+    if (_isValid) {
+      _animationController.forward().then(
+        (_) => _animationController.reverse(),
+      );
+    } else {
+      _animationController.forward(from: 0);
+    }
+
+    if (widget.onChanged != null) widget.onChanged!(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.centerRight,
+      children: [
+        AnimatedBuilder(
+          animation: _shakeAnimation,
+          builder: (context, child) {
+            return Transform.translate(
+              offset: Offset(_isValid ? 0 : _shakeAnimation.value, 0),
+              child: child,
+            );
+          },
+          child: TextFormField(
+            controller: widget.controller,
+            obscureText: widget.obscureText,
+            onChanged: _validate,
+            decoration: InputDecoration(
+              labelText: widget.label,
+              prefixIcon: Icon(widget.icon, color: Colors.deepPurple),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              filled: true,
+              fillColor: Colors.grey[50],
+              errorText: _errorMessage,
+            ),
+          ),
+        ),
+        if (_isValid)
+          Positioned(
+            right: 12,
+            child: ScaleTransition(
+              scale: Tween(begin: 0.0, end: 1.0).animate(
+                CurvedAnimation(
+                  parent: _animationController,
+                  curve: Curves.elasticOut,
+                ),
+              ),
+              child: const Icon(
+                Icons.check_circle,
+                color: Colors.green,
+                size: 28,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
